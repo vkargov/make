@@ -592,6 +592,15 @@ eval (struct ebuffer *ebuf, int set_default)
   gmk_floc *fstart;
   gmk_floc fi;
 
+	/* copied in hope it would fix their visibility in gdb... */
+	unsigned int linelen;
+	char *line;
+	unsigned int wlen;
+	char *p;
+	char *p2;
+	struct vmodifiers vmod;
+
+
 #define record_waiting_files()                                                \
   do                                                                          \
     {                                                                         \
@@ -627,13 +636,6 @@ eval (struct ebuffer *ebuf, int set_default)
 
   while (1)
     {
-      unsigned int linelen;
-      char *line;
-      unsigned int wlen;
-      char *p;
-      char *p2;
-      struct vmodifiers vmod;
-
       /* At the top of this loop, we are starting a brand new line.  */
       /* Grab the next line to be evaluated */
       ebuf->floc.lineno += nlines;

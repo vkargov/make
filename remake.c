@@ -86,8 +86,7 @@ update_goal_chain (struct dep *goals)
                      : file_mtime (file))
 
   /* Duplicate the chain so we can remove things from it.  */
-
-  goals = copy_dep_chain (goals);
+	goals = copy_dep_chain (goals);
 
   {
     /* Clear the 'changed' flag of each goal in the chain.

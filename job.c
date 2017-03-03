@@ -17,6 +17,7 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "makeint.h"
 
 #include <assert.h>
+#include <sys/time.h>
 
 #include "job.h"
 #include "debug.h"
@@ -24,6 +25,7 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "commands.h"
 #include "variable.h"
 #include "debug.h"
+#include "dep.h"
 
 #include <string.h>
 
@@ -1768,6 +1770,14 @@ new_job (struct file *file)
   struct child *c;
   char **lines;
   unsigned int i;
+	struct timeval time_start, time_finish, time_elapsed;
+
+	assert (job_slots == 1 || not_parallel);
+	
+	if (gettimeofday(&time_start, NULL)) {
+					printf ("Bad stuff may have happened. Sorry! ;_;\n");
+					_exit (EXIT_FAILURE);
+	}
 
   /* Let any previously decided-upon jobs that are waiting
      for the load to go down start before this new one.  */
@@ -2071,6 +2081,28 @@ new_job (struct file *file)
     while (file->command_state == cs_running)
       reap_children (1, 0);
 
+	void dump_file (struct file *f, unsigned indent_level) {
+					char * cwd = getcwd(NULL, 1000);
+					struct dep *dep;
+					printf ("%*s%s/%s\n", indent_level, "", cwd, f->name);
+					free(cwd);
+					if (f->cmds && f->cmds->commands)
+									printf ("%s", f->cmds->commands);
+					
+					for (dep = f->deps; dep != NULL; dep = dep->next)
+									dump_file (dep->file, indent_level + 2);
+	}
+
+	if (gettimeofday(&time_finish, NULL)) {
+					printf ("Bad stuff may have happened. S-sorry! ;_;\n");
+					_exit (EXIT_FAILURE);
+	}
+	
+	timersub (&time_finish, &time_start, &time_elapsed);
+
+	printf ("J %s : %ld.%.3d\n", file->name, time_elapsed.tv_sec, time_elapsed.tv_usec / 1000);
+	dump_file (file, 2);
+	
   OUTPUT_UNSET ();
   return;
 }
