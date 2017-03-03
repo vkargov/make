@@ -1761,6 +1761,20 @@ start_waiting_job (struct child *c)
   return 1;
 }
 
+static void
+dump_file (struct file *f, unsigned indent_level)
+{
+  char * cwd = getcwd(NULL, 1000);
+  struct dep *dep;
+  printf ("%*s%s/%s\n", indent_level, "", cwd, f->name);
+  free(cwd);
+  if (f->cmds && f->cmds->commands)
+    printf ("%s", f->cmds->commands);
+  
+  for (dep = f->deps; dep != NULL; dep = dep->next)
+    dump_file (dep->file, indent_level + 2);
+}
+
 /* Create a 'struct child' for FILE and start its commands running.  */
 
 void
@@ -2080,18 +2094,6 @@ new_job (struct file *file)
        Wait for the child to die, setting the state to 'cs_finished'.  */
     while (file->command_state == cs_running)
       reap_children (1, 0);
-
-	void dump_file (struct file *f, unsigned indent_level) {
-					char * cwd = getcwd(NULL, 1000);
-					struct dep *dep;
-					printf ("%*s%s/%s\n", indent_level, "", cwd, f->name);
-					free(cwd);
-					if (f->cmds && f->cmds->commands)
-									printf ("%s", f->cmds->commands);
-					
-					for (dep = f->deps; dep != NULL; dep = dep->next)
-									dump_file (dep->file, indent_level + 2);
-	}
 
 	if (gettimeofday(&time_finish, NULL)) {
 					printf ("Bad stuff may have happened. S-sorry! ;_;\n");
