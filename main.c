@@ -1017,7 +1017,39 @@ msdos_return_to_initial_directory (void)
 }
 #endif  /* __MSDOS__ */
 
-static void draw_dep_graph_1 (FILE *dg, const char *mom, struct dep *deps, struct hash_table *visited)
+unsigned long str_hash_1 (const void *key);
+unsigned long str_hash_2 (const void *key);
+int str_hash_cmp (const void *x, const void *y);
+
+/*
+ * File stats. Used for doodling.
+ * Perhaps it makes sense to integrate it into the `file` struct?
+ */
+struct fs
+{
+  char *name;
+  int visited;
+  struct timeval squandered;
+};
+
+unsigned long fs_hash_1 (const void *key)
+{
+  return str_hash_1 (key->name);
+}
+
+unsigned long fs_hash_2 (const void *key)
+{
+  return str_hash_2 (key->name);
+}
+
+int fs_hash_cmp (const void *x, const void *y)
+{
+  return str_hash_cmp (x->name, y->name);
+}
+
+struct hash_table fs_hash;
+
+static void draw_dep_graph_1 (FILE *dg, const char *mom, struct dep *deps)
 {
   struct dep *d;
 
@@ -1031,33 +1063,33 @@ static void draw_dep_graph_1 (FILE *dg, const char *mom, struct dep *deps, struc
   for (d = deps; d != NULL; d = d->next)
     {
       struct file *f = d->file;
-
-      if (!hash_find_item (visited, f->name))
+      struct fs_hash *eh = xcalloc (sizeof (struct fs_hash));
+      eh->name = f->name;
+      
+      if (!hash_find_item (fs_hash, f->name))
 	{
-	  draw_dep_graph_1 (dg, f->name, f->deps, visited);
-	  hash_insert (visited, f->name);
+	  draw_dep_graph_1 (dg, f->name, f->deps);
+	  hash_insert (fs_hash, eh);
 	}
+      else
+	xfree (eh);
     }
 }
-
-unsigned long str_hash_1 (const void *key);
-unsigned long str_hash_2 (const void *key);
-int str_hash_cmp (const void *x, const void *y);
 
 static void draw_dep_graph ()
 {
   FILE *dg = fopen ("depgraph.dot", "w");
   struct hash_table visited_files;
   
-  hash_init (&visited_files, 100 /* bukkits */, str_hash_1, str_hash_2, str_hash_cmp);
+  hash_init (&fs_hash, 100 /* bukkits */, fs_hash_1, fs_hash_2, fs_hash_cmp);
 
   fprintf (dg, "digraph DG {\n");
 
-  draw_dep_graph_1 (dg, ".", goals, &visited_files);
+  draw_dep_graph_1 (dg, ".", goals);
   
   fprintf (dg, "}\n");
 
-  hash_free (&visited_files, 0);
+  hash_free (&fs_timings, 0);
 
   fclose (dg);
 }

@@ -2103,6 +2103,9 @@ new_job (struct file *file)
 	timersub (&time_finish, &time_start, &time_elapsed);
 
 	printf ("J %s : %ld.%.3d\n", file->name, time_elapsed.tv_sec, time_elapsed.tv_usec / 1000);
+	
+	hash_find_item (file_timings, time_elapsed.tv_sec);
+	
 	dump_file (file, 2);
 	
   OUTPUT_UNSET ();
