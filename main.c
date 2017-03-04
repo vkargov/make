@@ -1017,7 +1017,7 @@ msdos_return_to_initial_directory (void)
 }
 #endif  /* __MSDOS__ */
 
-static void draw_dep_graph_1 (FILE *dg, const char *mom, struct dep *deps)
+static void draw_dep_graph_1 (FILE *dg, const char *mom, struct dep *deps, struct hash_table *visited)
 {
   struct dep *d;
 
@@ -1026,20 +1026,38 @@ static void draw_dep_graph_1 (FILE *dg, const char *mom, struct dep *deps)
       struct file *f = d->file;
 
       fprintf (dg, "\"%s\" -> \"%s\";\n", mom, f->name);
+    }
 
-      draw_dep_graph_1 (dg, f->name, f->deps);
+  for (d = deps; d != NULL; d = d->next)
+    {
+      struct file *f = d->file;
+
+      if (!hash_find_item (visited, f->name))
+	{
+	  draw_dep_graph_1 (dg, f->name, f->deps, visited);
+	  hash_insert (visited, f->name);
+	}
     }
 }
+
+unsigned long str_hash_1 (const void *key);
+unsigned long str_hash_2 (const void *key);
+int str_hash_cmp (const void *x, const void *y);
 
 static void draw_dep_graph ()
 {
   FILE *dg = fopen ("depgraph.dot", "w");
+  struct hash_table visited_files;
+  
+  hash_init (&visited_files, 100 /* bukkits */, str_hash_1, str_hash_2, str_hash_cmp);
 
   fprintf (dg, "digraph DG {\n");
 
-  draw_dep_graph_1 (dg, ".", goals);
+  draw_dep_graph_1 (dg, ".", goals, &visited_files);
   
   fprintf (dg, "}\n");
+
+  hash_free (&visited_files, 0);
 
   fclose (dg);
 }

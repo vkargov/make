@@ -126,19 +126,19 @@ add_string (const char *str, unsigned int len)
 
 /* Hash table of strings in the cache.  */
 
-static unsigned long
+unsigned long
 str_hash_1 (const void *key)
 {
   return_ISTRING_HASH_1 ((const char *) key);
 }
 
-static unsigned long
+unsigned long
 str_hash_2 (const void *key)
 {
   return_ISTRING_HASH_2 ((const char *) key);
 }
 
-static int
+int
 str_hash_cmp (const void *x, const void *y)
 {
   return_ISTRING_COMPARE ((const char *) x, (const char *) y);
