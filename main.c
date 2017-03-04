@@ -1017,6 +1017,33 @@ msdos_return_to_initial_directory (void)
 }
 #endif  /* __MSDOS__ */
 
+static void draw_dep_graph_1 (FILE *dg, const char *mom, struct dep *deps)
+{
+  struct dep *d;
+
+  for (d = deps; d != NULL; d = d->next)
+    {
+      struct file *f = d->file;
+
+      fprintf (dg, "\"%s\" -> \"%s\";\n", mom, f->name);
+
+      draw_dep_graph_1 (dg, f->name, f->deps);
+    }
+}
+
+static void draw_dep_graph ()
+{
+  FILE *dg = fopen ("depgraph.dot", "w");
+
+  fprintf (dg, "digraph DG {\n");
+
+  draw_dep_graph_1 (dg, ".", goals);
+  
+  fprintf (dg, "}\n");
+
+  fclose (dg);
+}
+
 #ifdef _AMIGA
 int
 main (int argc, char **argv)
@@ -2515,6 +2542,8 @@ main (int argc, char **argv, char **envp)
 
   DB (DB_BASIC, (_("Updating goal targets....\n")));
 
+  draw_dep_graph ();
+  
   {
     switch (update_goal_chain (goals))
     {

@@ -1769,7 +1769,7 @@ dump_file (struct file *f, unsigned indent_level)
   printf ("%*s%s/%s\n", indent_level, "", cwd, f->name);
   free(cwd);
   if (f->cmds && f->cmds->commands)
-    printf ("%s", f->cmds->commands);
+    printf ("%*s  %s", indent_level, "", f->cmds->commands);
   
   for (dep = f->deps; dep != NULL; dep = dep->next)
     dump_file (dep->file, indent_level + 2);
