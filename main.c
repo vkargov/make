@@ -1019,17 +1019,17 @@ msdos_return_to_initial_directory (void)
 
 unsigned long depstat_hash_1 (const void *key)
 {
-  return_ISTRING_HASH_1 ((const char *) key);
+  return_ISTRING_HASH_1 (((struct depstat *) key)->name);
 }
 
 unsigned long depstat_hash_2 (const void *key)
 {
-  return_ISTRING_HASH_1 ((const char *) key);
+  return_ISTRING_HASH_1 (((struct depstat *) key)->name);
 }
 
 int depstat_hash_cmp (const void *x, const void *y)
 {
-  return_ISTRING_COMPARE ((const char *) x, (const char *) y);
+  return_ISTRING_COMPARE (((struct depstat *) x)->name, ((struct depstat *) y)->name);
 }
 
 struct hash_table dep_stats;
@@ -1040,35 +1040,35 @@ static void draw_dep_graph_1 (FILE *dg, const char *mom, struct dep *deps)
 
   for (d = deps; d != NULL; d = d->next)
     {
-      struct file *f = d->file;
-
-      fprintf (dg, "\"%s\" -> \"%s\";\n", mom, f->name);
-    }
-
-  for (d = deps; d != NULL; d = d->next)
-    {
       struct file *f = d->file;      
       struct depstat *ds = alloca (sizeof (struct depstat));
       ds->name = f->name;
 
       ds = hash_find_item (&dep_stats, ds);
 
-      if (!ds || ds->wasted.tv_sec >= 1)
-	draw_dep_graph_1 (dg, ds, f->deps);
+      if (!ds)
+	continue; /* uh, I guess that means fresh target usually */
+
+      fprintf (dg, "\"%s\" -> \"%s\" [label=%ld.%.3ds];\n", mom, f->name, ds ? ds->wasted.tv_sec : -1, ds ? ds->wasted.tv_usec / 10000 : -1);
+
+      if (!ds || ds->wasted.tv_sec >= 1 || ds->wasted.tv_usec > 5000)
+	draw_dep_graph_1 (dg, ds ? ds->name : "?", f->deps);
     }
 }
 
 static void draw_dep_graph ()
 {
-  FILE *dg = fopen ("depgraph.dot", "w");
+  char fn[100];
+
+  snprintf (fn, 100, "depgraph.%d.dot", getpid());
+
+  FILE *dg = fopen (fn, "w");
 
   fprintf (dg, "digraph DG {\n");
 
   draw_dep_graph_1 (dg, ".", goals);
   
   fprintf (dg, "}\n");
-
-  hash_free (&dep_stats, 0);
 
   fclose (dg);
 }
