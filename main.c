@@ -1017,37 +1017,22 @@ msdos_return_to_initial_directory (void)
 }
 #endif  /* __MSDOS__ */
 
-unsigned long str_hash_1 (const void *key);
-unsigned long str_hash_2 (const void *key);
-int str_hash_cmp (const void *x, const void *y);
-
-/*
- * File stats. Used for doodling.
- * Perhaps it makes sense to integrate it into the `file` struct?
- */
-struct fs
+unsigned long depstat_hash_1 (const void *key)
 {
-  char *name;
-  int visited;
-  struct timeval squandered;
-};
-
-unsigned long fs_hash_1 (const void *key)
-{
-  return str_hash_1 (key->name);
+  return_ISTRING_HASH_1 ((const char *) key);
 }
 
-unsigned long fs_hash_2 (const void *key)
+unsigned long depstat_hash_2 (const void *key)
 {
-  return str_hash_2 (key->name);
+  return_ISTRING_HASH_1 ((const char *) key);
 }
 
-int fs_hash_cmp (const void *x, const void *y)
+int depstat_hash_cmp (const void *x, const void *y)
 {
-  return str_hash_cmp (x->name, y->name);
+  return_ISTRING_COMPARE ((const char *) x, (const char *) y);
 }
 
-struct hash_table fs_hash;
+struct hash_table dep_stats;
 
 static void draw_dep_graph_1 (FILE *dg, const char *mom, struct dep *deps)
 {
@@ -1062,26 +1047,20 @@ static void draw_dep_graph_1 (FILE *dg, const char *mom, struct dep *deps)
 
   for (d = deps; d != NULL; d = d->next)
     {
-      struct file *f = d->file;
-      struct fs_hash *eh = xcalloc (sizeof (struct fs_hash));
-      eh->name = f->name;
-      
-      if (!hash_find_item (fs_hash, f->name))
-	{
-	  draw_dep_graph_1 (dg, f->name, f->deps);
-	  hash_insert (fs_hash, eh);
-	}
-      else
-	xfree (eh);
+      struct file *f = d->file;      
+      struct depstat *ds = alloca (sizeof (struct depstat));
+      ds->name = f->name;
+
+      ds = hash_find_item (&dep_stats, ds);
+
+      if (!ds || ds->wasted.tv_sec >= 1)
+	draw_dep_graph_1 (dg, ds, f->deps);
     }
 }
 
 static void draw_dep_graph ()
 {
   FILE *dg = fopen ("depgraph.dot", "w");
-  struct hash_table visited_files;
-  
-  hash_init (&fs_hash, 100 /* bukkits */, fs_hash_1, fs_hash_2, fs_hash_cmp);
 
   fprintf (dg, "digraph DG {\n");
 
@@ -1089,7 +1068,7 @@ static void draw_dep_graph ()
   
   fprintf (dg, "}\n");
 
-  hash_free (&fs_timings, 0);
+  hash_free (&dep_stats, 0);
 
   fclose (dg);
 }
@@ -1967,6 +1946,12 @@ main (int argc, char **argv, char **envp)
       define_variable_cname ("-*-eval-flags-*-", value, o_automatic, 0);
     }
 
+  {
+    /* VK: Init dependency/file hash */
+    
+    hash_init (&dep_stats, 10000 /* expected files */, depstat_hash_1, depstat_hash_2, depstat_hash_cmp);
+  }
+  
   /* Read all the makefiles.  */
 
   read_files = read_all_makefiles (makefiles == 0 ? 0 : makefiles->list);
@@ -2592,8 +2577,6 @@ main (int argc, char **argv, char **envp)
 
   DB (DB_BASIC, (_("Updating goal targets....\n")));
 
-  draw_dep_graph ();
-  
   {
     switch (update_goal_chain (goals))
     {
@@ -2612,6 +2595,14 @@ main (int argc, char **argv, char **envp)
            but in VMS, there is only success and failure.  */
         makefile_status = MAKE_FAILURE;
         break;
+    }
+
+    {
+      /* VK: Draw graph, clear table */
+    
+      draw_dep_graph ();
+    
+      hash_free (&dep_stats, 1);
     }
 
     /* If we detected some clock skew, generate one last warning */

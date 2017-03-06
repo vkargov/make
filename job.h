@@ -157,3 +157,12 @@ extern int fatal_signal_mask;
 #endif
 
 extern unsigned int jobserver_tokens;
+
+/*
+ * Department of Statistics. (Dependency/file/rule stats, actually.)
+ */
+struct depstat
+{
+  const char *name;
+  struct timeval wasted;
+};

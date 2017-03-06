@@ -1762,7 +1762,7 @@ start_waiting_job (struct child *c)
 }
 
 static void
-dump_file (struct file *f, unsigned indent_level)
+log_file (struct file *f, unsigned indent_level)
 {
   char * cwd = getcwd(NULL, 1000);
   struct dep *dep;
@@ -1772,8 +1772,10 @@ dump_file (struct file *f, unsigned indent_level)
     printf ("%*s  %s", indent_level, "", f->cmds->commands);
   
   for (dep = f->deps; dep != NULL; dep = dep->next)
-    dump_file (dep->file, indent_level + 2);
+    log_file (dep->file, indent_level + 2);
 }
+
+extern struct hash_table dep_stats;
 
 /* Create a 'struct child' for FILE and start its commands running.  */
 
@@ -1784,14 +1786,15 @@ new_job (struct file *file)
   struct child *c;
   char **lines;
   unsigned int i;
-	struct timeval time_start, time_finish, time_elapsed;
+  struct timeval time_start, time_finish, time_elapsed;
 
-	assert (job_slots == 1 || not_parallel);
+  /* we don't account for parallel builds... for now */
+  assert (job_slots == 1 || not_parallel);
 	
-	if (gettimeofday(&time_start, NULL)) {
-					printf ("Bad stuff may have happened. Sorry! ;_;\n");
-					_exit (EXIT_FAILURE);
-	}
+  if (gettimeofday(&time_start, NULL)) {
+    printf ("Bad stuff may have happened. Sorry! ;_;\n");
+    _exit (EXIT_FAILURE);
+  }
 
   /* Let any previously decided-upon jobs that are waiting
      for the load to go down start before this new one.  */
@@ -2095,18 +2098,37 @@ new_job (struct file *file)
     while (file->command_state == cs_running)
       reap_children (1, 0);
 
-	if (gettimeofday(&time_finish, NULL)) {
-					printf ("Bad stuff may have happened. S-sorry! ;_;\n");
-					_exit (EXIT_FAILURE);
-	}
-	
-	timersub (&time_finish, &time_start, &time_elapsed);
+  if (gettimeofday(&time_finish, NULL)) {
+    printf ("Bad stuff may have happened. S-sorry! ;_;\n");
+    _exit (EXIT_FAILURE);
+  }
 
-	printf ("J %s : %ld.%.3d\n", file->name, time_elapsed.tv_sec, time_elapsed.tv_usec / 1000);
-	
-	hash_find_item (file_timings, time_elapsed.tv_sec);
-	
-	dump_file (file, 2);
+  timersub (&time_finish, &time_start, &time_elapsed);
+
+  {
+    /* VK: Track time in the hash table. */
+
+    struct depstat *oldslot, *newslot = xcalloc (sizeof (struct depstat));
+    newslot->name = file->name;
+    newslot->wasted = time_elapsed;
+
+    oldslot = hash_find_item (&dep_stats, newslot);
+
+    if (oldslot)
+      {
+	timeradd (&oldslot->wasted, &oldslot->wasted, &newslot->wasted);
+	free (newslot);
+      }
+    else
+      hash_insert (&dep_stats, newslot);
+  }
+
+  {
+    /* VK: Log file to stdout */
+    
+    printf ("J %s : %ld.%.3d\n", file->name, time_elapsed.tv_sec, time_elapsed.tv_usec / 1000);	
+    log_file (file, 2);
+  }
 	
   OUTPUT_UNSET ();
   return;
