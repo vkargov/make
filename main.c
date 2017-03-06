@@ -1049,7 +1049,7 @@ static void draw_dep_graph_1 (FILE *dg, const char *mom, struct dep *deps)
       if (!ds)
 	continue; /* uh, I guess that means fresh target usually */
 
-      fprintf (dg, "\"%s\" -> \"%s\" [label=%ld.%.3ds];\n", mom, f->name, ds ? ds->wasted.tv_sec : -1, ds ? ds->wasted.tv_usec / 10000 : -1);
+      fprintf (dg, "\"%s\" -> \"%s\" [label=\"%ld.%.3ds\"];\n", mom, f->name, ds ? ds->wasted.tv_sec : -1, ds ? ds->wasted.tv_usec / 10000 : -1);
 
       if (!ds || ds->wasted.tv_sec >= 1 || ds->wasted.tv_usec > 5000)
 	draw_dep_graph_1 (dg, ds ? ds->name : "?", f->deps);
@@ -1058,11 +1058,11 @@ static void draw_dep_graph_1 (FILE *dg, const char *mom, struct dep *deps)
 
 static void draw_dep_graph ()
 {
-  char fn[100];
+  char dotname[100];
 
-  snprintf (fn, 100, "depgraph.%d.dot", getpid());
+  snprintf (dotname, 100, "derpgraph.%d.dot", getpid());
 
-  FILE *dg = fopen (fn, "w");
+  FILE *dg = fopen (dotname, "w");
 
   fprintf (dg, "digraph DG {\n");
 
