@@ -284,6 +284,10 @@ update_file (struct file *file, unsigned int depth)
 {
   enum update_status status = us_success;
   struct file *f;
+  struct timeval timer_start, timer_finish;
+
+  if (gettimeofday (&timer_start, NULL))
+    assert(0);
 
   f = file->double_colon ? file->double_colon : file;
 
@@ -352,6 +356,13 @@ update_file (struct file *file, unsigned int depth)
           }
       }
 
+  /* we don't account for parallel builds... for now */
+  assert (job_slots == 1 || not_parallel);
+
+  if (gettimeofday (&timer_finish, NULL))
+    assert(0);
+  timersub (&timer_finish, &timer_start, &file->wasted_total);
+  
   return status;
 }
 

@@ -1017,48 +1017,33 @@ msdos_return_to_initial_directory (void)
 }
 #endif  /* __MSDOS__ */
 
-unsigned long depstat_hash_1 (const void *key)
-{
-  return_ISTRING_HASH_1 (((struct depstat *) key)->name);
-}
-
-unsigned long depstat_hash_2 (const void *key)
-{
-  return_ISTRING_HASH_1 (((struct depstat *) key)->name);
-}
-
-int depstat_hash_cmp (const void *x, const void *y)
-{
-  return_ISTRING_COMPARE (((struct depstat *) x)->name, ((struct depstat *) y)->name);
-}
-
-struct hash_table dep_stats;
-
-static void draw_dep_graph_1 (FILE *dg, const char *mom, struct dep *deps)
+static void draw_dep_graph_1 (FILE *dg, struct file *mom)
 {
   struct dep *d;
 
-  for (d = deps; d != NULL; d = d->next)
+  while (mom != NULL)
     {
-      struct file *f = d->file;      
-      struct depstat *ds = alloca (sizeof (struct depstat));
-      ds->name = f->name;
+      fprintf (dg, "\"%s\" [label=\"%s (%ld.%.2d/%ld.%.2d)\"]\n", mom->name, mom->name, mom->wasted_own.tv_sec, mom->wasted_own.tv_usec / 10000, mom->wasted_total.tv_sec, mom->wasted_total.tv_usec / 10000);
+  
+      for (d = mom->deps; d != NULL; d = d->next)
+	{
+	  struct file *kiddo = d->file;
+	  
+	  fprintf (dg, "\"%s\" -> \"%s\"\n", mom->name, kiddo->name);
 
-      ds = hash_find_item (&dep_stats, ds);
-
-      if (!ds)
-	continue; /* uh, I guess that means fresh target usually */
-
-      fprintf (dg, "\"%s\" -> \"%s\" [label=\"%ld.%.3ds\"];\n", mom, f->name, ds ? ds->wasted.tv_sec : -1, ds ? ds->wasted.tv_usec / 10000 : -1);
-
-      if (!ds || ds->wasted.tv_sec >= 1 || ds->wasted.tv_usec > 5000)
-	draw_dep_graph_1 (dg, ds ? ds->name : "?", f->deps);
+	  if (kiddo->wasted_total.tv_sec >= 1 /*sec*/ || kiddo->wasted_total.tv_usec/1000 > 200 /*msec*/)
+	    draw_dep_graph_1 (dg, kiddo);
+	}
+      
+      /* idk what it does, but all the cool kids do that, so I want to do that, too */
+      mom = mom->prev;
     }
 }
 
 static void draw_dep_graph ()
 {
   char dotname[100];
+  struct dep *g;
 
   snprintf (dotname, 100, "derpgraph.%d.dot", getpid());
 
@@ -1066,7 +1051,8 @@ static void draw_dep_graph ()
 
   fprintf (dg, "digraph DG {\n");
 
-  draw_dep_graph_1 (dg, ".", goals);
+  for (g = goals; g != NULL; g = g->next)
+    draw_dep_graph_1 (dg, g->file);
   
   fprintf (dg, "}\n");
 
@@ -1946,12 +1932,6 @@ main (int argc, char **argv, char **envp)
       define_variable_cname ("-*-eval-flags-*-", value, o_automatic, 0);
     }
 
-  {
-    /* VK: Init dependency/file hash */
-    
-    hash_init (&dep_stats, 10000 /* expected files */, depstat_hash_1, depstat_hash_2, depstat_hash_cmp);
-  }
-  
   /* Read all the makefiles.  */
 
   read_files = read_all_makefiles (makefiles == 0 ? 0 : makefiles->list);
@@ -2597,14 +2577,8 @@ main (int argc, char **argv, char **envp)
         break;
     }
 
-    {
-      /* VK: Draw graph, clear table */
+    draw_dep_graph ();
     
-      draw_dep_graph ();
-    
-      hash_free (&dep_stats, 1);
-    }
-
     /* If we detected some clock skew, generate one last warning */
     if (clock_skew_detected)
       O (error, NILF,

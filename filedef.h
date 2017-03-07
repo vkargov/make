@@ -100,6 +100,9 @@ struct file
                                    considered on current scan of goal chain */
     unsigned int no_diag:1;     /* True if the file failed to update and no
                                    diagnostics has been issued (dontcare). */
+
+    struct timeval wasted_own; /* own time wasted, not accounting for deps */
+    struct timeval wasted_total; /* total time wasted, on own commands + deps */
   };
 
 

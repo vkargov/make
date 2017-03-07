@@ -1761,22 +1761,6 @@ start_waiting_job (struct child *c)
   return 1;
 }
 
-static void
-log_file (struct file *f, unsigned indent_level)
-{
-  char * cwd = getcwd(NULL, 1000);
-  struct dep *dep;
-  printf ("%*s%s/%s\n", indent_level, "", cwd, f->name);
-  free(cwd);
-  if (f->cmds && f->cmds->commands)
-    printf ("%*s  %s", indent_level, "", f->cmds->commands);
-  
-  for (dep = f->deps; dep != NULL; dep = dep->next)
-    log_file (dep->file, indent_level + 2);
-}
-
-extern struct hash_table dep_stats;
-
 /* Create a 'struct child' for FILE and start its commands running.  */
 
 void
@@ -1786,15 +1770,6 @@ new_job (struct file *file)
   struct child *c;
   char **lines;
   unsigned int i;
-  struct timeval time_start, time_finish, time_elapsed;
-
-  /* we don't account for parallel builds... for now */
-  assert (job_slots == 1 || not_parallel);
-	
-  if (gettimeofday(&time_start, NULL)) {
-    printf ("Bad stuff may have happened. Sorry! ;_;\n");
-    _exit (EXIT_FAILURE);
-  }
 
   /* Let any previously decided-upon jobs that are waiting
      for the load to go down start before this new one.  */
@@ -2098,6 +2073,7 @@ new_job (struct file *file)
     while (file->command_state == cs_running)
       reap_children (1, 0);
 
+#if 0
   if (gettimeofday(&time_finish, NULL)) {
     printf ("Bad stuff may have happened. S-sorry! ;_;\n");
     _exit (EXIT_FAILURE);
@@ -2129,6 +2105,7 @@ new_job (struct file *file)
     printf ("J %s : %ld.%.3d\n", file->name, time_elapsed.tv_sec, time_elapsed.tv_usec / 1000);	
     log_file (file, 2);
   }
+#endif
 	
   OUTPUT_UNSET ();
   return;

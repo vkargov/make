@@ -20,6 +20,7 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "variable.h"
 #include "job.h"
 #include "commands.h"
+#include <assert.h>
 #ifdef WINDOWS32
 #include <windows.h>
 #include "w32err.h"
@@ -446,6 +447,10 @@ void
 execute_file_commands (struct file *file)
 {
   const char *p;
+  struct timeval timer_start, timer_finish;
+  
+  if (gettimeofday (&timer_start, NULL))
+    assert(0);
 
   /* Don't go through all the preparations if
      the commands are nothing but whitespace.  */
@@ -475,6 +480,13 @@ execute_file_commands (struct file *file)
 
   /* Start the commands running.  */
   new_job (file);
+
+  /* we don't account for parallel builds... for now */
+  assert (job_slots == 1 || not_parallel);
+
+  if (gettimeofday (&timer_finish, NULL))
+    assert(0);
+  timersub (&timer_finish, &timer_start, &file->wasted_own);
 }
 
 /* This is set while we are inside fatal_error_signal,
