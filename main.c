@@ -303,6 +303,10 @@ struct variable shell_var;
 
 char cmd_prefix = '\t';
 
+/* Dot threshold, also serves as a switch to enable it. */
+double dot_threshold = -1.0; /* sec */
+double no_dot = -1.0; /* sec */
+
 
 /* The usage output.  We write it this way to make life easier for the
    translators, especially those trying to translate to right-to-left
@@ -446,6 +450,7 @@ static const struct command_switch switches[] =
       "warn-undefined-variables" },
     { CHAR_MAX+6, strlist, &eval_strings, 1, 0, 0, 0, 0, "eval" },
     { CHAR_MAX+7, string, &sync_mutex, 1, 1, 0, 0, 0, "sync-mutex" },
+    { CHAR_MAX+8, floating, &dot_threshold, 1, 0, 0, &no_dot, 0, "dot" },
     { 0, 0, 0, 0, 0, 0, 0, 0, 0 }
   };
 
@@ -1017,13 +1022,24 @@ msdos_return_to_initial_directory (void)
 }
 #endif  /* __MSDOS__ */
 
+#define TV2D(tv) ((double)(tv).tv_sec + (double)(tv).tv_usec / 1000000)
+
 static void draw_dep_graph_1 (FILE *dg, struct file *mom)
 {
   struct dep *d;
 
   while (mom != NULL)
     {
-      fprintf (dg, "\"%s\" [label=\"%s (%ld.%.2d/%ld.%.2d)\"]\n", mom->name, mom->name, mom->wasted_own.tv_sec, mom->wasted_own.tv_usec / 10000, mom->wasted_total.tv_sec, mom->wasted_total.tv_usec / 10000);
+      fprintf (dg, "\"%s\" [weight=%f, label=\"%s (%f/%f)", mom->name, TV2D(mom->wasted_total), mom->name, TV2D(mom->wasted_own), TV2D(mom->wasted_total));
+      
+      if (mom->cmds && mom->cmds->commands)
+	{
+	  int i;
+	  for (i = 0; i < mom->cmds->ncommand_lines; i++)	    
+	    fprintf (dg, "\\n%s", mom->cmds->command_lines[i]);
+	}
+      
+      fprintf (dg, "\"]\n");
   
       for (d = mom->deps; d != NULL; d = d->next)
 	{
@@ -1031,8 +1047,10 @@ static void draw_dep_graph_1 (FILE *dg, struct file *mom)
 	  
 	  fprintf (dg, "\"%s\" -> \"%s\"\n", mom->name, kiddo->name);
 
-	  if (kiddo->wasted_total.tv_sec >= 1 /*sec*/ || kiddo->wasted_total.tv_usec/1000 > 200 /*msec*/)
-	    draw_dep_graph_1 (dg, kiddo);
+	  if (TV2D(kiddo->wasted_total) > dot_threshold)
+	    {
+	      draw_dep_graph_1 (dg, kiddo);
+	    }
 	}
       
       /* idk what it does, but all the cool kids do that, so I want to do that, too */
@@ -2577,7 +2595,8 @@ main (int argc, char **argv, char **envp)
         break;
     }
 
-    draw_dep_graph ();
+    if (dot_threshold >= 0)
+      draw_dep_graph ();
     
     /* If we detected some clock skew, generate one last warning */
     if (clock_skew_detected)
