@@ -1035,6 +1035,9 @@ static void draw_dep_graph_1 (FILE *dg, struct file *mom)
       if (mom->cmds && mom->cmds->commands)
 	{
 	  int i;
+	  /* Some commands remain unchopped. Likely they've never been executed,
+	     so really they shouldn't be printed. But let them stay for now. */
+	  chop_commands (mom->cmds);
 	  for (i = 0; i < mom->cmds->ncommand_lines; i++)	    
 	    fprintf (dg, "\\n%s", mom->cmds->command_lines[i]);
 	}
